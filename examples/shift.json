@@ -1,0 +1,11 @@
+{
+  "station": "CP01",
+  "date": "2026-11-18",
+  "batch_id": "B1",
+  "region": "east",
+  "measurements": [
+    {"litres": 3, "record": "morning-survey", "locator": "sheet-1/01"},
+    {"litres": null, "record": "morning-survey", "locator": "sheet-1/02"},
+    {"litres": 4, "record": "morning-survey", "locator": "sheet-1/03"}
+  ]
+}
