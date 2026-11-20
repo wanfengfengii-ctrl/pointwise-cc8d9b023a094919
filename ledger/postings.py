@@ -81,6 +81,8 @@ def commit_posting(store, request):
             return check_receipt_request(existing, request.day, request.litres), False
         if store.region != request.region:
             raise NotOwner('correction region does not match the posting store')
+        if header['settled_move'] is not None:
+            raise NotOwner('the outgoing book was settled by a move')
         if header['inbound_move'] is not None and header['accepted_digest'] is None:
             raise NotOwner('the receiving book has not accepted the handoff')
         new = load_preparation(connection, request.day, request.epoch, request.correction_id)

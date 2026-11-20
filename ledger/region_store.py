@@ -9,7 +9,7 @@ _SCHEMA = (
         station TEXT NOT NULL, day TEXT NOT NULL, epoch INTEGER NOT NULL,
         batch TEXT NOT NULL, initial_litres TEXT NOT NULL, current_litres TEXT NOT NULL,
         frontier INTEGER NOT NULL CHECK (frontier >= 0), inbound_move TEXT,
-        accepted_digest TEXT,
+        accepted_digest TEXT, settled_move TEXT,
         PRIMARY KEY (station, day, epoch)
     )''',
     '''CREATE TABLE IF NOT EXISTS preparations (
@@ -59,6 +59,10 @@ class RegionStore(Database):
     def __init__(self, path, region):
         self.region = region
         super().__init__(path, _SCHEMA)
+        with self.transaction(write=True) as connection:
+            columns = {row['name'] for row in connection.execute('PRAGMA table_info(books)')}
+            if 'settled_move' not in columns:
+                connection.execute('ALTER TABLE books ADD COLUMN settled_move TEXT')
 
     def write_transaction(self):
         return self.transaction(write=True)
@@ -100,6 +104,18 @@ class RegionStore(Database):
 
     def read_day(self, day, epoch):
         with self.transaction() as connection:
+            return self.read_image(connection, day, epoch)
+
+    def settle_day(self, day, epoch, move_id):
+        """Seal the outgoing book against further official postings and return its final image."""
+        key = book_key(day, epoch)
+        with self.write_transaction() as connection:
+            header = self.header(connection, day, epoch)
+            settled = header['settled_move']
+            if settled is None:
+                connection.execute(f'UPDATE books SET settled_move = ? WHERE {_KEY}', (move_id, *key))
+            elif settled != move_id:
+                raise Conflict(f'book already settled by move {settled}')
             return self.read_image(connection, day, epoch)
 
     def stage_day(self, day, epoch, move_id, image, *, final=False):

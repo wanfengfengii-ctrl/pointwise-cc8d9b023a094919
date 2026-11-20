@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from intake.stations import StationDay
 from ledger.region_store import book_key
-from storage import Conflict, InconsistentBook, litre_text, parse_litres
+from storage import Conflict, InconsistentBook, NotOwner, litre_text, parse_litres
 
 
 @dataclass(frozen=True)
@@ -39,7 +39,9 @@ def prepare_correction(store, request):
     with store.write_transaction() as connection:
         if store.region != request.region:
             raise InconsistentBook('preparation store differs from the requested region')
-        store.header(connection, request.day, request.epoch)
+        header = store.header(connection, request.day, request.epoch)
+        if header['settled_move'] is not None:
+            raise NotOwner('the outgoing book was settled by a move')
         key = book_key(request.day, request.epoch)
         existing = load_preparation(connection, request.day, request.epoch, request.correction_id)
         if existing is None:
